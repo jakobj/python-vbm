@@ -12,4 +12,6 @@ def train(np.ndarray[double, ndim=2, mode='c'] W, np.ndarray[double, ndim=1, mod
     assert(W.shape[0] == W.shape[1])
     assert(W.shape[1] == b.shape[0])
     assert(data.shape[0] == episodes)
-    ctrain(<double*>W.data, <double*>b.data, W.shape[0], W.shape[1], <double*>data.data, episodes, epsilon_w, epsilon_b, batchsize, seed)
+    # ctrain modifies data vector, so we need to create a copy here
+    cdef np.ndarray[double, ndim=2, mode='c'] _data = data.copy()
+    ctrain(<double*>W.data, <double*>b.data, W.shape[0], W.shape[1], <double*>_data.data, episodes, epsilon_w, epsilon_b, batchsize, seed)

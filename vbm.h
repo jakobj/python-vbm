@@ -93,7 +93,7 @@ void ctrain(
   double dW[ rows * cols ];
   double db[ cols ];
   double u;
-  double s[ cols ];
+
   const double effective_epsilon_w = 1 / ( double )( batchsize ) * epsilon_w;
   const double effective_epsilon_b = 1 / ( double )( batchsize ) * epsilon_b;
 
@@ -107,26 +107,25 @@ void ctrain(
 
     for ( unsigned int j = 0; j < batchsize; ++j )
     {
-      // initialize network to next data vector
-      for ( unsigned int k = 0; k < cols; ++k )
-      {
-        s[ k ] = data[ i * batchsize * cols + j * cols + k];
-      }
-
-      // perform a single Gibbs step (update all units once)
-      for ( unsigned int k = 0; k < cols; ++k )
-      {
-        u = inner_product_cblas( &W[ k * cols ], s, cols );
-        s[ k ] = logistic( u + b[ k ] );
-      }
-
-      // compute \Delta W += <ss>_0 and \Delta W -= <ss>_1
+      // compute \Delta W += <ss>_0
       outer_product_cblas( &data[ i * batchsize * cols + j * cols], &data[ i * batchsize * cols + j * cols], 1., rows, cols, dW );
-      outer_product_cblas( s, s, -1., rows, cols, dW );
 
-      // compute \Delta b += <s>_0 - <s>_1
+      // compute \Delta b += <s>_0
       vector_vector_sum_cblas( &data[ i * batchsize * cols + j * cols], db, 1, rows );
-      vector_vector_sum_cblas( s, db, -1, rows );
+
+      // perform a single Gibbs step (update all units once) directly
+      // on data vector to avoid copying
+      for ( unsigned int k = 0; k < cols; ++k )
+      {
+        u = inner_product_cblas( &W[ k * cols ], &data[ i * batchsize * cols + j * cols], cols );
+        data[ i * batchsize * cols + j * cols + k ] = logistic( u + b[ k ] );
+      }
+
+      // compute \Delta W -= <ss>_1
+      outer_product_cblas( &data[ i * batchsize * cols + j * cols ], &data[ i * batchsize * cols + j * cols ], -1., rows, cols, dW );
+
+      // compute \Delta b -= <s>_1
+      vector_vector_sum_cblas( &data[ i * batchsize * cols + j * cols ], db, -1, rows );
     }
 
     // updates weights and biases
