@@ -7,6 +7,13 @@
  * C BLAS function wrappers.
  */
 
+inline void copy_vector_cblas(
+  const double* const x, double* const y,
+  const unsigned int rows )
+{
+  cblas_dcopy( rows, x, 1, y, 1 );
+}
+
 inline double inner_product_cblas(
   const double* const x, const double* const y,
   const unsigned int rows )
@@ -32,6 +39,19 @@ inline void vector_vector_sum_cblas(
 /**
  * Helper functions.
  */
+
+inline void copy_matrix(
+  const double* const m0, double* const m1,
+  const unsigned int rows, const unsigned int cols )
+{
+  for ( unsigned int i = 0; i < rows; ++i )
+  {
+    for ( unsigned int j = 0; j < cols; ++j )
+    {
+      m1[ i * cols + j ] = m0[ i * cols + j ];
+    }
+  }
+}
 
 inline void matrix_matrix_sum(
   const double* const m0, const double* const m1,
@@ -88,16 +108,23 @@ void ctrain(
   double* W, double* b, unsigned int rows, unsigned int cols,
   double* data, unsigned int episodes,
   double epsilon_w, double epsilon_b,
-  unsigned int batchsize, unsigned int seed )
+  unsigned int batchsize, unsigned int seed,
+  const double momentum_constant, const double decay_constant )
 {
   double dW[ rows * cols ];
   double db[ cols ];
+  double dW_minus[ rows * cols ];
+  double db_minus[ cols ];
   double u;
 
   const double effective_epsilon_w = 1 / ( double )( batchsize ) * epsilon_w;
   const double effective_epsilon_b = 1 / ( double )( batchsize ) * epsilon_b;
 
   srand( seed );
+
+  // initialize momentum terms to zero at start of learning
+  zero_matrix( rows, cols, dW_minus );
+  zero_vector( rows, db_minus );
 
   for ( unsigned int i = 0; i < episodes / batchsize; ++i )
   {
@@ -128,9 +155,28 @@ void ctrain(
       vector_vector_sum_cblas( &data[ i * batchsize * cols + j * cols ], db, -1, rows );
     }
 
+    // add momentum
+    if ( momentum_constant > 0. )
+    {
+      matrix_matrix_sum( dW, dW_minus, momentum_constant, rows, cols, dW );
+      vector_vector_sum_cblas( db_minus, db, momentum_constant, rows );
+      copy_matrix( dW, dW_minus, rows, cols );
+      copy_vector_cblas( db, db_minus, rows );
+    }
+
+    // decay weights
+    if ( decay_constant > 0. )
+    {
+      // need to devide by learning rate, since dW is multiplied by it
+      // below
+      matrix_matrix_sum( dW, W, -decay_constant / effective_epsilon_w, rows, cols, dW );
+    }
+
     // updates weights and biases
     matrix_matrix_sum( W, dW, effective_epsilon_w, rows, cols, W );
-    zero_diagonal( rows, cols, W );
     vector_vector_sum_cblas( db, b, effective_epsilon_b, rows );
+
+    // set diagonal of weight matrix to zero
+    zero_diagonal( rows, cols, W );
   }
 }
