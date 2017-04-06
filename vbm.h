@@ -180,3 +180,26 @@ void ctrain(
     zero_diagonal( rows, cols, W );
   }
 }
+
+/**
+ * Sample from a fully visible Boltzmann machine.
+ */
+void csample(
+  const double* W, const double* b, const unsigned int rows, const unsigned int cols,
+  const unsigned int episodes, const unsigned int seed,
+  double* s, double* samples )
+{
+  double u;
+  srand( seed );
+
+  for ( unsigned int i = 0; i < episodes; ++i )
+  {
+    // perform a single Gibbs step (update all units once)
+    for ( unsigned int k = 0; k < cols; ++k )
+    {
+      u = inner_product_cblas( &W[ k * cols ], s, cols );
+      s[ k ] = logistic( u + b[ k ] );
+    }
+    copy_vector_cblas( s, &samples[ i * rows], rows );
+  }
+}
