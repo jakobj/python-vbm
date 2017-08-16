@@ -192,14 +192,16 @@ void csample(
   double u;
   srand( seed );
 
-  for ( unsigned int i = 0; i < episodes; ++i )
+  unsigned int i = 0;
+  while( i < episodes )
   {
     // perform a single Gibbs step (update all units once)
     for ( unsigned int k = 0; k < cols; ++k )
     {
       u = inner_product_cblas( &W[ k * cols ], s, cols );
       s[ k ] = logistic( u + b[ k ] );
+      copy_vector_cblas( s, &samples[ i * rows], rows );
+      ++i;
     }
-    copy_vector_cblas( s, &samples[ i * rows], rows );
   }
 }
