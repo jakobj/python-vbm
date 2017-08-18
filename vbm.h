@@ -91,9 +91,14 @@ inline void zero_diagonal(
   }
 }
 
-inline double rand_double( void)
+inline double rand_double( void )
 {
   return ( double ) rand() / ( double )( RAND_MAX );
+}
+
+inline unsigned int rand_int( const unsigned int max )
+{
+  return rand() % max;
 }
 
 inline unsigned int logistic( const double h )
@@ -193,15 +198,20 @@ void csample(
   srand( seed );
 
   unsigned int i = 0;
-  while( i < episodes )
+  while(1)
   {
-    // perform a single Gibbs step (update all units once)
+    // perform a single Gibbs step (update all units once on average)
     for ( unsigned int k = 0; k < cols; ++k )
     {
-      u = inner_product_cblas( &W[ k * cols ], s, cols );
-      s[ k ] = logistic( u + b[ k ] );
-      copy_vector_cblas( s, &samples[ i * rows], rows );
-      ++i;
+      const unsigned int j = rand_int( cols );
+      u = inner_product_cblas( &W[ j * cols ], s, cols );
+      s[ j ] = logistic( u + b[ j ] );
+    }
+    copy_vector_cblas( s, &samples[ i * rows], rows );
+    ++i;
+    if( i == episodes)
+    {
+      return;
     }
   }
 }
